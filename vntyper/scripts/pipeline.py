@@ -12,7 +12,8 @@ from vntyper.scripts.alignment_processing import align_and_sort_fastq
 from vntyper.scripts.fastq_bam_processing import (
     process_bam_to_fastq,
     process_fastq,
-    calculate_vntr_coverage
+    calculate_vntr_coverage,
+    downsample_bam_if_needed
 )
 from vntyper.scripts.generate_report import generate_summary_report
 from vntyper.scripts.kestrel_genotyping import run_kestrel
@@ -432,6 +433,22 @@ def run_pipeline(
 
             logging.debug(f"adVNTR reference set to: {advntr_reference}")
             sorted_bam = Path(dirs['fastq_bam_processing']) / "output_sliced.bam"
+
+            # 2) Check if user specified a max coverage:
+            max_cov = module_args.get('advntr', {}).get('max_coverage')
+            if max_cov:
+                logging.info(f"Using quick adVNTR mode with max coverage = {max_cov}")
+                # 3) Downsample if needed:
+                sorted_bam = downsample_bam_if_needed(
+                    bam_path=sorted_bam,
+                    max_coverage=max_cov,
+                    reference_assembly=reference_assembly,
+                    threads=threads,
+                    config=config,
+                    coverage_dir=dirs['coverage'],
+                    coverage_prefix="advntr_precheck"
+                )
+
             if sorted_bam and sorted_bam.exists():
                 run_advntr(
                     advntr_reference,
